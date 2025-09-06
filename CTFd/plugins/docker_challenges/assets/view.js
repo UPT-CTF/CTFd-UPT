@@ -36,7 +36,8 @@ function get_docker_status(container) {
                 
                 ports.forEach(port => {
                     port = String(port);
-                    data = data + 'Host: ' + item.host + ' Port: ' + port + '<br />';
+                    //item.host hardcoded for now
+                    data = data + 'Host: ' + 'ctf.ac.upt.ro' + ' Port: ' + port + '<br />';
                 });
                 // Update the DOM with the docker container information
                 CTFd.lib.$('#docker_container').html('<pre>Docker Container Information:<br />' + data + 
@@ -44,10 +45,21 @@ function get_docker_status(container) {
 
                 // Update the DOM with connection info information.
                 // Note that connection info should contain "host" and "port"
-                var $link = CTFd.lib.$('.challenge-connection-info');
-                $link.html($link.html().replace(/host/gi, item.host));
-                $link.html($link.html().replace(/port|\b\d{5}\b/gi, ports[0].split("/")[0]));
+                const $link = CTFd.lib.$('.challenge-connection-info');
+                //item.host hardcoded for now
+                const host =  'ctf.ac.upt.ro';
+                const port = (ports[0] || '').split('/')[0];
 
+                if ($link.length) {
+                const current = $link.html() || '';
+                let updated = current.replace(/host/gi, host);
+                updated = updated.replace(/port|\b\d{5}\b/gi, port);
+                $link.html(updated);
+                } else {
+                CTFd.lib.$('#docker_container').append(
+                    `<div class="challenge-connection-info">Host: ${host} Port: ${port}</div>`
+                );
+                }
                 // Check if there are links in there, if not and we use a http[s] address, make it a link
                 CTFd.lib.$(".challenge-connection-info").each(function () {
                     const $span = CTFd.lib.$(this);
