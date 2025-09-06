@@ -18,11 +18,12 @@ services:
       - .data/CTFd/logs:/var/log/CTFd
       - .data/CTFd/uploads:/var/uploads
       - .:/opt/CTFd:ro
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - db
     networks:
-        default:
-        internal:
+      default:
+      internal:
 
   nginx:
     image: nginx:stable
@@ -46,19 +47,39 @@ services:
     volumes:
       - .data/mysql:/var/lib/mysql
     networks:
-        internal:
+      internal:
     # This command is required to set important mariadb defaults
-    command: [mysqld, --character-set-server=utf8mb4, --collation-server=utf8mb4_unicode_ci, --wait_timeout=28800, --log-warnings=0]
+    command:
+      [
+        mysqld,
+        --character-set-server=utf8mb4,
+        --collation-server=utf8mb4_unicode_ci,
+        --wait_timeout=28800,
+        --log-warnings=0,
+      ]
 
   cache:
     image: redis:4
     restart: always
     volumes:
-    - .data/redis:/data
+      - .data/redis:/data
     networks:
-        internal:
+      internal:
+
+  # docker-api:
+  #   image: docker:dind
+  #   privileged: true
+  #   environment:
+  #     - DOCKER_TLS_CERTDIR=
+  #   command: dockerd -H tcp://0.0.0.0:2376 -H unix:///var/run/docker.sock
+  #   expose:
+  #     - "2376"
+  #   volumes:
+  #     - .data/docker:/var/lib/docker
+  #   networks:
+  #     internal:
 
 networks:
-    default:
-    internal:
-        internal: true
+  default:
+  internal:
+    internal: true

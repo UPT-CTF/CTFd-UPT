@@ -48,7 +48,9 @@ from CTFd.forms.fields import SubmitField
 from CTFd.utils.config import get_themes
 
 from pathlib import Path
-
+import httpx, traceback
+from pathlib import Path
+from urllib.parse import urlparse
 
 class DockerConfig(db.Model):
     """
@@ -213,30 +215,56 @@ class KillContainerAPI(Resource):
 
 
 def do_request(docker, url, headers=None, method='GET'):
-    tls = docker.tls_enabled
-    prefix = 'https' if tls else 'http'
-    host = docker.hostname
-    URL_TEMPLATE = '%s://%s' % (prefix, host)
+    tls = getattr(docker, 'tls_enabled', False)
+    host = getattr(docker, 'hostname', '')
+    uds_path = None
+    h = str(host or '').strip()
+    if h.startswith('unix://'):
+        uds_path = h[len('unix://'):]
+    elif h == 'unix' or h == '' or h == '/var/run/docker.sock':
+        uds_path = '/var/run/docker.sock'
+    else:
+        parsed = urlparse(h if '://' in h else f'//{h}', scheme='')
+        netloc = parsed.netloc or parsed.path
+        if netloc in ('unix',):
+            uds_path = '/var/run/docker.sock'
     try:
-        if tls:
-            cert, verify = get_client_cert(docker)
-            if (method == 'GET'):
-                r = requests.get(url=f"%s{url}" % URL_TEMPLATE, cert=cert, verify=verify, headers=headers)
-            elif (method == 'DELETE'):
-                r = requests.delete(url=f"%s{url}" % URL_TEMPLATE, cert=cert, verify=verify, headers=headers)
-            # Clean up the cert files:
-            for file_path in [*cert, verify]:
-                if file_path:
-                    Path(file_path).unlink(missing_ok=True)
+        if uds_path:
+            print("good")
+            with httpx.Client(transport=httpx.HTTPTransport(uds=uds_path)) as client:
+                if method == 'GET':
+                    return client.get(f'http://localhost{url}', headers=headers)
+                elif method == 'DELETE':
+                    return client.delete(f'http://localhost{url}', headers=headers)
         else:
-            if (method == 'GET'):
-                r = requests.get(url=f"%s{url}" % URL_TEMPLATE, headers=headers)
-            elif (method == 'DELETE'):
-                r = requests.delete(url=f"%s{url}" % URL_TEMPLATE, headers=headers)
-    except:
+            prefix = 'https' if tls else 'http'
+            base = f'{prefix}://{host}'
+            if tls:
+                cert, verify = get_client_cert(docker)
+                try:
+                    if method == 'GET':
+                        r = httpx.get(f'{base}{url}', headers=headers, cert=cert, verify=verify)
+                    elif method == 'DELETE':
+                        r = httpx.delete(f'{base}{url}', headers=headers, cert=cert, verify=verify)
+                finally:
+                    for file_path in [*cert, verify]:
+                        if file_path:
+                            try:
+                                Path(file_path).unlink(missing_ok=True)
+                            except Exception:
+                                print("fail")
+                                pass
+                return r
+            else:
+                if method == 'GET':
+                    return httpx.get(f'{base}{url}', headers=headers)
+                elif method == 'DELETE':
+                    return httpx.delete(f'{base}{url}', headers=headers)
+    except Exception:
+        print("bad")
         traceback.print_exc()
-        r = []
-    return r
+        return []
+
 
 
 def get_client_cert(docker):
@@ -295,53 +323,63 @@ def get_required_ports(docker, image):
 
 
 def create_container(docker, image, team, portbl):
-    tls = docker.tls_enabled
-    CERT = None
-    if not tls:
-        prefix = 'http'
-    else:
-        prefix = 'https'
-    host = docker.hostname
-    URL_TEMPLATE = '%s://%s' % (prefix, host)
+    tls = getattr(docker, 'tls_enabled', False)
+    host = getattr(docker, 'hostname', '')
+    h = str(host or '').strip()
+    uds_path = None
+    if h.startswith('unix://'):
+        uds_path = h[len('unix://'):]
+    elif h in ('unix', '', '/var/run/docker.sock') or h.startswith('/'):
+        uds_path = h if h.startswith('/') else '/var/run/docker.sock'
+    prefix = 'https' if tls else 'http'
     needed_ports = get_required_ports(docker, image)
     team = hashlib.md5(team.encode("utf-8")).hexdigest()[:10]
-    container_name = "%s_%s" % (image.split(':')[1], team)
-    assigned_ports = dict()
+    container_name = "%s_%s" % (image.split(':')[1] if ':' in image else image, team)
+    assigned_ports = {}
     for i in needed_ports:
         while True:
             assigned_port = random.choice(range(30000, 60000))
             if assigned_port not in portbl:
                 assigned_ports['%s/tcp' % assigned_port] = {}
                 break
-    ports = dict()
-    bindings = dict()
+    ports = {}
+    bindings = {}
     tmp_ports = list(assigned_ports.keys())
     for i in needed_ports:
         ports[i] = {}
-        bindings[i] = [{"HostPort": tmp_ports.pop()}]
+        bindings[i] = [{"HostPort": tmp_ports.pop().split('/')[0]}]
     headers = {'Content-Type': "application/json"}
     data = json.dumps({"Image": image, "ExposedPorts": ports, "HostConfig": {"PortBindings": bindings}})
-    if tls:
-        cert, verify = get_client_cert(docker)
-        r = requests.post(url="%s/containers/create?name=%s" % (URL_TEMPLATE, container_name), cert=cert,
-                      verify=verify, data=data, headers=headers)
-        result = r.json()
-        s = requests.post(url="%s/containers/%s/start" % (URL_TEMPLATE, result['Id']), cert=cert, verify=verify,
-                          headers=headers)
-        # Clean up the cert files:
-        for file_path in [*cert, verify]:
-            if file_path:
-                Path(file_path).unlink(missing_ok=True)
+    try:
+        if uds_path and not tls:
+            with httpx.Client(transport=httpx.HTTPTransport(uds=uds_path)) as client:
+                r = client.post(f"http://localhost/containers/create?name={container_name}", content=data, headers=headers)
+                result = r.json()
+                s = client.post(f"http://localhost/containers/{result['Id']}/start", headers=headers)
+        else:
+            base = f"{prefix}://{host}"
+            if tls:
+                cert, verify = get_client_cert(docker)
+                try:
+                    r = httpx.post(f"{base}/containers/create?name={container_name}", content=data, headers=headers, cert=cert, verify=verify)
+                    result = r.json()
+                    s = httpx.post(f"{base}/containers/{result['Id']}/start", headers=headers, cert=cert, verify=verify)
+                finally:
+                    for file_path in [*cert, verify]:
+                        if file_path:
+                            try:
+                                Path(file_path).unlink(missing_ok=True)
+                            except Exception:
+                                pass
+            else:
+                r = httpx.post(f"{base}/containers/create?name={container_name}", content=data, headers=headers)
+                result = r.json()
+                s = httpx.post(f"{base}/containers/{result['Id']}/start", headers=headers)
+        return result, data
+    except Exception:
+        traceback.print_exc()
+        return [], data
 
-    else:
-        r = requests.post(url="%s/containers/create?name=%s" % (URL_TEMPLATE, container_name),
-                          data=data, headers=headers)
-        print(r.request.method, r.request.url, r.request.body)
-        result = r.json()
-        print(result)
-        # name conflicts are not handled properly
-        s = requests.post(url="%s/containers/%s/start" % (URL_TEMPLATE, result['Id']), headers=headers)
-    return result, data
 
 
 def delete_container(docker, instance_id):
