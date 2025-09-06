@@ -349,7 +349,7 @@ class Challenge(Resource):
                 else:
                     # We need to handle the case where a user is viewing challenges anonymously
                     solve_ids = []
-                solve_ids = {value for value, in solve_ids}
+                solve_ids = {value for (value,) in solve_ids}
                 prereqs = set(requirements).intersection(all_challenge_ids)
                 if solve_ids >= prereqs or is_admin():
                     pass
@@ -663,7 +663,7 @@ class ChallengeAttempt(Resource):
                 .order_by(Solves.challenge_id.asc())
                 .all()
             )
-            solve_ids = {solve_id for solve_id, in solve_ids}
+            solve_ids = {solve_id for (solve_id,) in solve_ids}
             # Gather all challenge IDs so that we can determine invalid challenge prereqs
             all_challenge_ids = {
                 c.id for c in Challenges.query.with_entities(Challenges.id).all()

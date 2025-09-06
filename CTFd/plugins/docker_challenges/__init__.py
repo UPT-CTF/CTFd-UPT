@@ -6,9 +6,30 @@ from CTFd.utils.user import get_ip
 from CTFd.utils.uploads import delete_file
 from CTFd.plugins import register_plugin_assets_directory, bypass_csrf_protection
 from CTFd.schemas.tags import TagSchema
-from CTFd.models import db, ma, Challenges, Teams, Users, Solves, Fails, Flags, Files, Hints, Tags, ChallengeFiles
-from CTFd.utils.decorators import admins_only, authed_only, during_ctf_time_only, require_verified_emails
-from CTFd.utils.decorators.visibility import check_challenge_visibility, check_score_visibility
+from CTFd.models import (
+    db,
+    ma,
+    Challenges,
+    Teams,
+    Users,
+    Solves,
+    Fails,
+    Flags,
+    Files,
+    Hints,
+    Tags,
+    ChallengeFiles,
+)
+from CTFd.utils.decorators import (
+    admins_only,
+    authed_only,
+    during_ctf_time_only,
+    require_verified_emails,
+)
+from CTFd.utils.decorators.visibility import (
+    check_challenge_visibility,
+    check_score_visibility,
+)
 from CTFd.utils.user import get_current_team
 from CTFd.utils.user import get_current_user
 from CTFd.utils.user import is_admin, authed
@@ -18,7 +39,17 @@ from CTFd.api.v1.scoreboard import ScoreboardDetail
 import CTFd.utils.scores
 from CTFd.api.v1.challenges import ChallengeList, Challenge
 from flask_restx import Namespace, Resource
-from flask import request, Blueprint, jsonify, abort, render_template, url_for, redirect, session
+from flask import (
+    request,
+    Blueprint,
+    jsonify,
+    abort,
+    render_template,
+    url_for,
+    redirect,
+    session,
+)
+
 # from flask_wtf import FlaskForm
 from wtforms import (
     FileField,
@@ -31,6 +62,7 @@ from wtforms import (
     SelectMultipleField,
     BooleanField,
 )
+
 # from wtforms import TextField, SubmitField, BooleanField, HiddenField, FileField, SelectMultipleField
 from wtforms.validators import DataRequired, ValidationError, InputRequired
 from werkzeug.utils import secure_filename
@@ -52,10 +84,12 @@ import httpx, traceback
 from pathlib import Path
 from urllib.parse import urlparse
 
+
 class DockerConfig(db.Model):
     """
-	Docker Config Model. This model stores the config for docker API connections.
-	"""
+    Docker Config Model. This model stores the config for docker API connections.
+    """
+
     id = db.Column(db.Integer, primary_key=True)
     hostname = db.Column("hostname", db.String(64), index=True)
     tls_enabled = db.Column("tls_enabled", db.Boolean, default=False, index=True)
@@ -67,8 +101,9 @@ class DockerConfig(db.Model):
 
 class DockerChallengeTracker(db.Model):
     """
-	Docker Container Tracker. This model stores the users/teams active docker containers.
-	"""
+    Docker Container Tracker. This model stores the users/teams active docker containers.
+    """
+
     id = db.Column(db.Integer, primary_key=True)
     team_id = db.Column("team_id", db.String(64), index=True)
     user_id = db.Column("user_id", db.String(64), index=True)
@@ -76,26 +111,31 @@ class DockerChallengeTracker(db.Model):
     timestamp = db.Column("timestamp", db.Integer, index=True)
     revert_time = db.Column("revert_time", db.Integer, index=True)
     instance_id = db.Column("instance_id", db.String(128), index=True)
-    ports = db.Column('ports', db.String(128), index=True)
-    host = db.Column('host', db.String(128), index=True)
-    challenge = db.Column('challenge', db.String(256), index=True)
+    ports = db.Column("ports", db.String(128), index=True)
+    host = db.Column("host", db.String(128), index=True)
+    challenge = db.Column("challenge", db.String(256), index=True)
+
 
 class DockerConfigForm(BaseForm):
     id = HiddenField()
     hostname = StringField(
         "Docker Hostname", description="The Hostname/IP and Port of your Docker Server"
     )
-    tls_enabled = RadioField('TLS Enabled?')
-    ca_cert = FileField('CA Cert')
-    client_cert = FileField('Client Cert')
-    client_key = FileField('Client Key')
-    repositories = SelectMultipleField('Repositories')
-    submit = SubmitField('Submit')
+    tls_enabled = RadioField("TLS Enabled?")
+    ca_cert = FileField("CA Cert")
+    client_cert = FileField("Client Cert")
+    client_key = FileField("Client Key")
+    repositories = SelectMultipleField("Repositories")
+    submit = SubmitField("Submit")
 
 
 def define_docker_admin(app):
-    admin_docker_config = Blueprint('admin_docker_config', __name__, template_folder='templates',
-                                    static_folder='assets')
+    admin_docker_config = Blueprint(
+        "admin_docker_config",
+        __name__,
+        template_folder="templates",
+        static_folder="assets",
+    )
 
     @admin_docker_config.route("/admin/docker_config", methods=["GET", "POST"])
     @admins_only
@@ -108,25 +148,28 @@ def define_docker_admin(app):
             else:
                 b = DockerConfig()
             try:
-                ca_cert = request.files['ca_cert'].stream.read()
+                ca_cert = request.files["ca_cert"].stream.read()
             except:
                 traceback.print_exc()
-                ca_cert = ''
+                ca_cert = ""
             try:
-                client_cert = request.files['client_cert'].stream.read()
+                client_cert = request.files["client_cert"].stream.read()
             except:
                 traceback.print_exc()
-                client_cert = ''
+                client_cert = ""
             try:
-                client_key = request.files['client_key'].stream.read()
+                client_key = request.files["client_key"].stream.read()
             except:
                 traceback.print_exc()
-                client_key = ''
-            if len(ca_cert) != 0: b.ca_cert = ca_cert
-            if len(client_cert) != 0: b.client_cert = client_cert
-            if len(client_key) != 0: b.client_key = client_key
-            b.hostname = request.form['hostname']
-            b.tls_enabled = request.form['tls_enabled']
+                client_key = ""
+            if len(ca_cert) != 0:
+                b.ca_cert = ca_cert
+            if len(client_cert) != 0:
+                b.client_cert = client_cert
+            if len(client_key) != 0:
+                b.client_key = client_key
+            b.hostname = request.form["hostname"]
+            b.tls_enabled = request.form["tls_enabled"]
             if b.tls_enabled == "True":
                 b.tls_enabled = True
             else:
@@ -136,7 +179,9 @@ def define_docker_admin(app):
                 b.client_cert = None
                 b.client_key = None
             try:
-                b.repositories = ','.join(request.form.to_dict(flat=False)['repositories'])
+                b.repositories = ",".join(
+                    request.form.to_dict(flat=False)["repositories"]
+                )
             except:
                 traceback.print_exc()
                 b.repositories = None
@@ -161,14 +206,20 @@ def define_docker_admin(app):
         except:
             traceback.print_exc()
             selected_repos = []
-        return render_template("docker_config.html", config=dconfig, form=form, repos=selected_repos)
+        return render_template(
+            "docker_config.html", config=dconfig, form=form, repos=selected_repos
+        )
 
     app.register_blueprint(admin_docker_config)
 
 
 def define_docker_status(app):
-    admin_docker_status = Blueprint('admin_docker_status', __name__, template_folder='templates',
-                                    static_folder='assets')
+    admin_docker_status = Blueprint(
+        "admin_docker_status",
+        __name__,
+        template_folder="templates",
+        static_folder="assets",
+    )
 
     @admin_docker_status.route("/admin/docker_status", methods=["GET", "POST"])
     @admins_only
@@ -187,24 +238,28 @@ def define_docker_status(app):
     app.register_blueprint(admin_docker_status)
 
 
-kill_container = Namespace("nuke", description='Endpoint to nuke containers')
+kill_container = Namespace("nuke", description="Endpoint to nuke containers")
 
 
-@kill_container.route("", methods=['POST', 'GET'])
+@kill_container.route("", methods=["POST", "GET"])
 class KillContainerAPI(Resource):
     @admins_only
     def get(self):
-        container = request.args.get('container')
-        full = request.args.get('all')
+        container = request.args.get("container")
+        full = request.args.get("all")
         docker_config = DockerConfig.query.filter_by(id=1).first()
         docker_tracker = DockerChallengeTracker.query.all()
         if full == "true":
             for c in docker_tracker:
                 delete_container(docker_config, c.instance_id)
-                DockerChallengeTracker.query.filter_by(instance_id=c.instance_id).delete()
+                DockerChallengeTracker.query.filter_by(
+                    instance_id=c.instance_id
+                ).delete()
                 db.session.commit()
 
-        elif container != 'null' and container in [c.instance_id for c in docker_tracker]:
+        elif container != "null" and container in [
+            c.instance_id for c in docker_tracker
+        ]:
             delete_container(docker_config, container)
             DockerChallengeTracker.query.filter_by(instance_id=container).delete()
             db.session.commit()
@@ -214,38 +269,42 @@ class KillContainerAPI(Resource):
         return True
 
 
-def do_request(docker, url, headers=None, method='GET'):
-    tls = getattr(docker, 'tls_enabled', False)
-    host = getattr(docker, 'hostname', '')
+def do_request(docker, url, headers=None, method="GET"):
+    tls = getattr(docker, "tls_enabled", False)
+    host = getattr(docker, "hostname", "")
     uds_path = None
-    h = str(host or '').strip()
-    if h.startswith('unix://'):
-        uds_path = h[len('unix://'):]
-    elif h == 'unix' or h == '' or h == '/var/run/docker.sock':
-        uds_path = '/var/run/docker.sock'
+    h = str(host or "").strip()
+    if h.startswith("unix://"):
+        uds_path = h[len("unix://") :]
+    elif h == "unix" or h == "" or h == "/var/run/docker.sock":
+        uds_path = "/var/run/docker.sock"
     else:
-        parsed = urlparse(h if '://' in h else f'//{h}', scheme='')
+        parsed = urlparse(h if "://" in h else f"//{h}", scheme="")
         netloc = parsed.netloc or parsed.path
-        if netloc in ('unix',):
-            uds_path = '/var/run/docker.sock'
+        if netloc in ("unix",):
+            uds_path = "/var/run/docker.sock"
     try:
         if uds_path:
             print("good")
             with httpx.Client(transport=httpx.HTTPTransport(uds=uds_path)) as client:
-                if method == 'GET':
-                    return client.get(f'http://localhost{url}', headers=headers)
-                elif method == 'DELETE':
-                    return client.delete(f'http://localhost{url}', headers=headers)
+                if method == "GET":
+                    return client.get(f"http://localhost{url}", headers=headers)
+                elif method == "DELETE":
+                    return client.delete(f"http://localhost{url}", headers=headers)
         else:
-            prefix = 'https' if tls else 'http'
-            base = f'{prefix}://{host}'
+            prefix = "https" if tls else "http"
+            base = f"{prefix}://{host}"
             if tls:
                 cert, verify = get_client_cert(docker)
                 try:
-                    if method == 'GET':
-                        r = httpx.get(f'{base}{url}', headers=headers, cert=cert, verify=verify)
-                    elif method == 'DELETE':
-                        r = httpx.delete(f'{base}{url}', headers=headers, cert=cert, verify=verify)
+                    if method == "GET":
+                        r = httpx.get(
+                            f"{base}{url}", headers=headers, cert=cert, verify=verify
+                        )
+                    elif method == "DELETE":
+                        r = httpx.delete(
+                            f"{base}{url}", headers=headers, cert=cert, verify=verify
+                        )
                 finally:
                     for file_path in [*cert, verify]:
                         if file_path:
@@ -256,15 +315,14 @@ def do_request(docker, url, headers=None, method='GET'):
                                 pass
                 return r
             else:
-                if method == 'GET':
-                    return httpx.get(f'{base}{url}', headers=headers)
-                elif method == 'DELETE':
-                    return httpx.delete(f'{base}{url}', headers=headers)
+                if method == "GET":
+                    return httpx.get(f"{base}{url}", headers=headers)
+                elif method == "DELETE":
+                    return httpx.delete(f"{base}{url}", headers=headers)
     except Exception:
         print("bad")
         traceback.print_exc()
         return []
-
 
 
 def get_client_cert(docker):
@@ -291,79 +349,102 @@ def get_client_cert(docker):
 
 # For the Docker Config Page. Gets the Current Repositories available on the Docker Server.
 def get_repositories(docker, tags=False, repos=False):
-    r = do_request(docker, '/images/json?all=1')
+    r = do_request(docker, "/images/json?all=1")
     result = list()
     for i in r.json():
-        if not i['RepoTags'] == []:
-            if not i['RepoTags'][0].split(':')[0] == '<none>':
+        if not i["RepoTags"] == []:
+            if not i["RepoTags"][0].split(":")[0] == "<none>":
                 if repos:
-                    if not i['RepoTags'][0].split(':')[0] in repos:
+                    if not i["RepoTags"][0].split(":")[0] in repos:
                         continue
                 if not tags:
-                    result.append(i['RepoTags'][0].split(':')[0])
+                    result.append(i["RepoTags"][0].split(":")[0])
                 else:
-                    result.append(i['RepoTags'][0])
+                    result.append(i["RepoTags"][0])
     return list(set(result))
 
 
 def get_unavailable_ports(docker):
-    r = do_request(docker, '/containers/json?all=1')
+    r = do_request(docker, "/containers/json?all=1")
     result = list()
     for i in r.json():
-        if not i['Ports'] == []:
-            for p in i['Ports']:
-                result.append(p['PublicPort'])
+        if not i["Ports"] == []:
+            for p in i["Ports"]:
+                result.append(p["PublicPort"])
     return result
 
 
 def get_required_ports(docker, image):
-    r = do_request(docker, f'/images/{image}/json?all=1')
-    result = r.json()['Config']['ExposedPorts'].keys()
+    r = do_request(docker, f"/images/{image}/json?all=1")
+    result = r.json()["Config"]["ExposedPorts"].keys()
     return result
 
 
 def create_container(docker, image, team, portbl):
-    tls = getattr(docker, 'tls_enabled', False)
-    host = getattr(docker, 'hostname', '')
-    h = str(host or '').strip()
+    tls = getattr(docker, "tls_enabled", False)
+    host = getattr(docker, "hostname", "")
+    h = str(host or "").strip()
     uds_path = None
-    if h.startswith('unix://'):
-        uds_path = h[len('unix://'):]
-    elif h in ('unix', '', '/var/run/docker.sock') or h.startswith('/'):
-        uds_path = h if h.startswith('/') else '/var/run/docker.sock'
-    prefix = 'https' if tls else 'http'
+    if h.startswith("unix://"):
+        uds_path = h[len("unix://") :]
+    elif h in ("unix", "", "/var/run/docker.sock") or h.startswith("/"):
+        uds_path = h if h.startswith("/") else "/var/run/docker.sock"
+    prefix = "https" if tls else "http"
     needed_ports = get_required_ports(docker, image)
     team = hashlib.md5(team.encode("utf-8")).hexdigest()[:10]
-    container_name = "%s_%s" % (image.split(':')[1] if ':' in image else image, team)
+    container_name = "%s_%s" % (image.split(":")[1] if ":" in image else image, team)
     assigned_ports = {}
     for i in needed_ports:
         while True:
             assigned_port = random.choice(range(30000, 60000))
             if assigned_port not in portbl:
-                assigned_ports['%s/tcp' % assigned_port] = {}
+                assigned_ports["%s/tcp" % assigned_port] = {}
                 break
     ports = {}
     bindings = {}
     tmp_ports = list(assigned_ports.keys())
     for i in needed_ports:
         ports[i] = {}
-        bindings[i] = [{"HostPort": tmp_ports.pop().split('/')[0]}]
-    headers = {'Content-Type': "application/json"}
-    data = json.dumps({"Image": image, "ExposedPorts": ports, "HostConfig": {"PortBindings": bindings}})
+        bindings[i] = [{"HostPort": tmp_ports.pop().split("/")[0]}]
+    headers = {"Content-Type": "application/json"}
+    data = json.dumps(
+        {
+            "Image": image,
+            "ExposedPorts": ports,
+            "HostConfig": {"PortBindings": bindings},
+        }
+    )
     try:
         if uds_path and not tls:
             with httpx.Client(transport=httpx.HTTPTransport(uds=uds_path)) as client:
-                r = client.post(f"http://localhost/containers/create?name={container_name}", content=data, headers=headers)
+                r = client.post(
+                    f"http://localhost/containers/create?name={container_name}",
+                    content=data,
+                    headers=headers,
+                )
                 result = r.json()
-                s = client.post(f"http://localhost/containers/{result['Id']}/start", headers=headers)
+                s = client.post(
+                    f"http://localhost/containers/{result['Id']}/start", headers=headers
+                )
         else:
             base = f"{prefix}://{host}"
             if tls:
                 cert, verify = get_client_cert(docker)
                 try:
-                    r = httpx.post(f"{base}/containers/create?name={container_name}", content=data, headers=headers, cert=cert, verify=verify)
+                    r = httpx.post(
+                        f"{base}/containers/create?name={container_name}",
+                        content=data,
+                        headers=headers,
+                        cert=cert,
+                        verify=verify,
+                    )
                     result = r.json()
-                    s = httpx.post(f"{base}/containers/{result['Id']}/start", headers=headers, cert=cert, verify=verify)
+                    s = httpx.post(
+                        f"{base}/containers/{result['Id']}/start",
+                        headers=headers,
+                        cert=cert,
+                        verify=verify,
+                    )
                 finally:
                     for file_path in [*cert, verify]:
                         if file_path:
@@ -372,19 +453,29 @@ def create_container(docker, image, team, portbl):
                             except Exception:
                                 pass
             else:
-                r = httpx.post(f"{base}/containers/create?name={container_name}", content=data, headers=headers)
+                r = httpx.post(
+                    f"{base}/containers/create?name={container_name}",
+                    content=data,
+                    headers=headers,
+                )
                 result = r.json()
-                s = httpx.post(f"{base}/containers/{result['Id']}/start", headers=headers)
+                s = httpx.post(
+                    f"{base}/containers/{result['Id']}/start", headers=headers
+                )
         return result, data
     except Exception:
         traceback.print_exc()
         return [], data
 
 
-
 def delete_container(docker, instance_id):
-    headers = {'Content-Type': "application/json"}
-    do_request(docker, f'/containers/{instance_id}?force=true', headers=headers, method='DELETE')
+    headers = {"Content-Type": "application/json"}
+    do_request(
+        docker,
+        f"/containers/{instance_id}?force=true",
+        headers=headers,
+        method="DELETE",
+    )
     return True
 
 
@@ -392,28 +483,33 @@ class DockerChallengeType(BaseChallenge):
     id = "docker"
     name = "docker"
     templates = {
-        'create': '/plugins/docker_challenges/assets/create.html',
-        'update': '/plugins/docker_challenges/assets/update.html',
-        'view': '/plugins/docker_challenges/assets/view.html',
+        "create": "/plugins/docker_challenges/assets/create.html",
+        "update": "/plugins/docker_challenges/assets/update.html",
+        "view": "/plugins/docker_challenges/assets/view.html",
     }
     scripts = {
-        'create': '/plugins/docker_challenges/assets/create.js',
-        'update': '/plugins/docker_challenges/assets/update.js',
-        'view': '/plugins/docker_challenges/assets/view.js',
+        "create": "/plugins/docker_challenges/assets/create.js",
+        "update": "/plugins/docker_challenges/assets/update.js",
+        "view": "/plugins/docker_challenges/assets/view.js",
     }
-    route = '/plugins/docker_challenges/assets'
-    blueprint = Blueprint('docker_challenges', __name__, template_folder='templates', static_folder='assets')
+    route = "/plugins/docker_challenges/assets"
+    blueprint = Blueprint(
+        "docker_challenges",
+        __name__,
+        template_folder="templates",
+        static_folder="assets",
+    )
 
     @staticmethod
     def update(challenge, request):
         """
-		This method is used to update the information associated with a challenge. This should be kept strictly to the
-		Challenges table and any child tables.
+        This method is used to update the information associated with a challenge. This should be kept strictly to the
+        Challenges table and any child tables.
 
-		:param challenge:
-		:param request:
-		:return:
-		"""
+        :param challenge:
+        :param request:
+        :return:
+        """
         data = request.form or request.get_json()
         for attr, value in data.items():
             setattr(challenge, attr, value)
@@ -424,12 +520,12 @@ class DockerChallengeType(BaseChallenge):
     @staticmethod
     def delete(challenge):
         """
-		This method is used to delete the resources used by a challenge.
-		NOTE: Will need to kill all containers here
+        This method is used to delete the resources used by a challenge.
+        NOTE: Will need to kill all containers here
 
-		:param challenge:
-		:return:
-		"""
+        :param challenge:
+        :return:
+        """
         Fails.query.filter_by(challenge_id=challenge.id).delete()
         Solves.query.filter_by(challenge_id=challenge.id).delete()
         Flags.query.filter_by(challenge_id=challenge.id).delete()
@@ -446,39 +542,39 @@ class DockerChallengeType(BaseChallenge):
     @staticmethod
     def read(challenge):
         """
-		This method is in used to access the data of a challenge in a format processable by the front end.
+        This method is in used to access the data of a challenge in a format processable by the front end.
 
-		:param challenge:
-		:return: Challenge object, data dictionary to be returned to the user
-		"""
+        :param challenge:
+        :return: Challenge object, data dictionary to be returned to the user
+        """
         challenge = DockerChallenge.query.filter_by(id=challenge.id).first()
         data = {
-            'id': challenge.id,
-            'name': challenge.name,
-            'value': challenge.value,
-            'docker_image': challenge.docker_image,
-            'description': challenge.description,
-            'category': challenge.category,
-            'state': challenge.state,
-            'max_attempts': challenge.max_attempts,
-            'type': challenge.type,
-            'type_data': {
-                'id': DockerChallengeType.id,
-                'name': DockerChallengeType.name,
-                'templates': DockerChallengeType.templates,
-                'scripts': DockerChallengeType.scripts,
-            }
+            "id": challenge.id,
+            "name": challenge.name,
+            "value": challenge.value,
+            "docker_image": challenge.docker_image,
+            "description": challenge.description,
+            "category": challenge.category,
+            "state": challenge.state,
+            "max_attempts": challenge.max_attempts,
+            "type": challenge.type,
+            "type_data": {
+                "id": DockerChallengeType.id,
+                "name": DockerChallengeType.name,
+                "templates": DockerChallengeType.templates,
+                "scripts": DockerChallengeType.scripts,
+            },
         }
         return data
 
     @staticmethod
     def create(request):
         """
-		This method is used to process the challenge creation request.
+        This method is used to process the challenge creation request.
 
-		:param request:
-		:return:
-		"""
+        :param request:
+        :return:
+        """
         data = request.form or request.get_json()
         challenge = DockerChallenge(**data)
         db.session.add(challenge)
@@ -488,14 +584,14 @@ class DockerChallengeType(BaseChallenge):
     @staticmethod
     def attempt(challenge, request):
         """
-		This method is used to check whether a given input is right or wrong. It does not make any changes and should
-		return a boolean for correctness and a string to be shown to the user. It is also in charge of parsing the
-		user's input from the request itself.
+        This method is used to check whether a given input is right or wrong. It does not make any changes and should
+        return a boolean for correctness and a string to be shown to the user. It is also in charge of parsing the
+        user's input from the request itself.
 
-		:param challenge: The Challenge object from the database
-		:param request: The request the user submitted
-		:return: (boolean, string)
-		"""
+        :param challenge: The Challenge object from the database
+        :param request: The request the user submitted
+        :return: (boolean, string)
+        """
 
         data = request.form or request.get_json()
         print(request.get_json())
@@ -510,25 +606,37 @@ class DockerChallengeType(BaseChallenge):
     @staticmethod
     def solve(user, team, challenge, request):
         """
-		This method is used to insert Solves into the database in order to mark a challenge as solved.
+        This method is used to insert Solves into the database in order to mark a challenge as solved.
 
-		:param team: The Team object from the database
-		:param chal: The Challenge object from the database
-		:param request: The request the user submitted
-		:return:
-		"""
+        :param team: The Team object from the database
+        :param chal: The Challenge object from the database
+        :param request: The request the user submitted
+        :return:
+        """
         data = request.form or request.get_json()
         submission = data["submission"].strip()
         docker = DockerConfig.query.filter_by(id=1).first()
         try:
             if is_teams_mode():
-                docker_containers = DockerChallengeTracker.query.filter_by(
-                    docker_image=challenge.docker_image).filter_by(team_id=team.id).first()
+                docker_containers = (
+                    DockerChallengeTracker.query.filter_by(
+                        docker_image=challenge.docker_image
+                    )
+                    .filter_by(team_id=team.id)
+                    .first()
+                )
             else:
-                docker_containers = DockerChallengeTracker.query.filter_by(
-                    docker_image=challenge.docker_image).filter_by(user_id=user.id).first()
+                docker_containers = (
+                    DockerChallengeTracker.query.filter_by(
+                        docker_image=challenge.docker_image
+                    )
+                    .filter_by(user_id=user.id)
+                    .first()
+                )
             delete_container(docker, docker_containers.instance_id)
-            DockerChallengeTracker.query.filter_by(instance_id=docker_containers.instance_id).delete()
+            DockerChallengeTracker.query.filter_by(
+                instance_id=docker_containers.instance_id
+            ).delete()
         except:
             pass
         solve = Solves(
@@ -541,18 +649,18 @@ class DockerChallengeType(BaseChallenge):
         db.session.add(solve)
         db.session.commit()
         # trying if this solces the detached instance error...
-        #db.session.close()
+        # db.session.close()
 
     @staticmethod
     def fail(user, team, challenge, request):
         """
-		This method is used to insert Fails into the database in order to mark an answer incorrect.
+        This method is used to insert Fails into the database in order to mark an answer incorrect.
 
-		:param team: The Team object from the database
-		:param chal: The Challenge object from the database
-		:param request: The request the user submitted
-		:return:
-		"""
+        :param team: The Team object from the database
+        :param chal: The Challenge object from the database
+        :param request: The request the user submitted
+        :return:
+        """
         data = request.form or request.get_json()
         submission = data["submission"].strip()
         wrong = Fails(
@@ -564,109 +672,148 @@ class DockerChallengeType(BaseChallenge):
         )
         db.session.add(wrong)
         db.session.commit()
-        #db.session.close()
+        # db.session.close()
 
 
 class DockerChallenge(Challenges):
-    __mapper_args__ = {'polymorphic_identity': 'docker'}
-    id = db.Column(None, db.ForeignKey('challenges.id'), primary_key=True)
+    __mapper_args__ = {"polymorphic_identity": "docker"}
+    id = db.Column(None, db.ForeignKey("challenges.id"), primary_key=True)
     docker_image = db.Column(db.String(128), index=True)
 
 
 # API
-container_namespace = Namespace("container", description='Endpoint to interact with containers')
+container_namespace = Namespace(
+    "container", description="Endpoint to interact with containers"
+)
 
 
-@container_namespace.route("", methods=['POST', 'GET'])
+@container_namespace.route("", methods=["POST", "GET"])
 class ContainerAPI(Resource):
     @authed_only
     # I wish this was Post... Issues with API/CSRF and whatnot. Open to a Issue solving this.
     def get(self):
-        container = request.args.get('name')
+        container = request.args.get("name")
         if not container:
             return abort(403, "No container specified")
-        challenge = request.args.get('challenge')
+        challenge = request.args.get("challenge")
         if not challenge:
             return abort(403, "No challenge name specified")
-        
+
         docker = DockerConfig.query.filter_by(id=1).first()
         containers = DockerChallengeTracker.query.all()
         if container not in get_repositories(docker, tags=True):
-            return abort(403,f"Container {container} not present in the repository.")
+            return abort(403, f"Container {container} not present in the repository.")
         if is_teams_mode():
             session = get_current_team()
             # First we'll delete all old docker containers (+2 hours)
             for i in containers:
-                if int(session.id) == int(i.team_id) and (unix_time(datetime.utcnow()) - int(i.timestamp)) >= 7200:
+                if (
+                    int(session.id) == int(i.team_id)
+                    and (unix_time(datetime.utcnow()) - int(i.timestamp)) >= 7200
+                ):
                     delete_container(docker, i.instance_id)
-                    DockerChallengeTracker.query.filter_by(instance_id=i.instance_id).delete()
+                    DockerChallengeTracker.query.filter_by(
+                        instance_id=i.instance_id
+                    ).delete()
                     db.session.commit()
-            check = DockerChallengeTracker.query.filter_by(team_id=session.id).filter_by(docker_image=container).first()
+            check = (
+                DockerChallengeTracker.query.filter_by(team_id=session.id)
+                .filter_by(docker_image=container)
+                .first()
+            )
         else:
             session = get_current_user()
             for i in containers:
-                if int(session.id) == int(i.user_id) and (unix_time(datetime.utcnow()) - int(i.timestamp)) >= 7200:
+                if (
+                    int(session.id) == int(i.user_id)
+                    and (unix_time(datetime.utcnow()) - int(i.timestamp)) >= 7200
+                ):
                     delete_container(docker, i.instance_id)
-                    DockerChallengeTracker.query.filter_by(instance_id=i.instance_id).delete()
+                    DockerChallengeTracker.query.filter_by(
+                        instance_id=i.instance_id
+                    ).delete()
                     db.session.commit()
-            check = DockerChallengeTracker.query.filter_by(user_id=session.id).filter_by(docker_image=container).first()
-        
+            check = (
+                DockerChallengeTracker.query.filter_by(user_id=session.id)
+                .filter_by(docker_image=container)
+                .first()
+            )
+
         # If this container is already created, we don't need another one.
-        if check != None and not (unix_time(datetime.utcnow()) - int(check.timestamp)) >= 300:
-            return abort(403,"To prevent abuse, dockers can be reverted and stopped after 5 minutes of creation.")
+        if (
+            check != None
+            and not (unix_time(datetime.utcnow()) - int(check.timestamp)) >= 300
+        ):
+            return abort(
+                403,
+                "To prevent abuse, dockers can be reverted and stopped after 5 minutes of creation.",
+            )
         # Delete when requested
-        elif check != None and request.args.get('stopcontainer'):
+        elif check != None and request.args.get("stopcontainer"):
             delete_container(docker, check.instance_id)
             if is_teams_mode():
-                DockerChallengeTracker.query.filter_by(team_id=session.id).filter_by(docker_image=container).delete()
+                DockerChallengeTracker.query.filter_by(team_id=session.id).filter_by(
+                    docker_image=container
+                ).delete()
             else:
-                DockerChallengeTracker.query.filter_by(user_id=session.id).filter_by(docker_image=container).delete()
+                DockerChallengeTracker.query.filter_by(user_id=session.id).filter_by(
+                    docker_image=container
+                ).delete()
             db.session.commit()
             return {"result": "Container stopped"}
         # The exception would be if we are reverting a box. So we'll delete it if it exists and has been around for more than 5 minutes.
         elif check != None:
             delete_container(docker, check.instance_id)
             if is_teams_mode():
-                DockerChallengeTracker.query.filter_by(team_id=session.id).filter_by(docker_image=container).delete()
+                DockerChallengeTracker.query.filter_by(team_id=session.id).filter_by(
+                    docker_image=container
+                ).delete()
             else:
-                DockerChallengeTracker.query.filter_by(user_id=session.id).filter_by(docker_image=container).delete()
+                DockerChallengeTracker.query.filter_by(user_id=session.id).filter_by(
+                    docker_image=container
+                ).delete()
             db.session.commit()
-        
+
         # Check if a container is already running for this user. We need to recheck the DB first
         containers = DockerChallengeTracker.query.all()
         for i in containers:
             if int(session.id) == int(i.user_id):
-                return abort(403,f"Another container is already running for challenge:<br><i><b>{i.challenge}</b></i>.<br>Please stop this first.<br>You can only run one container.")
+                return abort(
+                    403,
+                    f"Another container is already running for challenge:<br><i><b>{i.challenge}</b></i>.<br>Please stop this first.<br>You can only run one container.",
+                )
 
         portsbl = get_unavailable_ports(docker)
         create = create_container(docker, container, session.name, portsbl)
-        ports = json.loads(create[1])['HostConfig']['PortBindings'].values()
+        ports = json.loads(create[1])["HostConfig"]["PortBindings"].values()
         entry = DockerChallengeTracker(
             team_id=session.id if is_teams_mode() else None,
             user_id=session.id if not is_teams_mode() else None,
             docker_image=container,
             timestamp=unix_time(datetime.utcnow()),
             revert_time=unix_time(datetime.utcnow()) + 300,
-            instance_id=create[0]['Id'],
-            ports=','.join([p[0]['HostPort'] for p in ports]),
-            host=str(docker.hostname).split(':')[0],
-            challenge=challenge
+            instance_id=create[0]["Id"],
+            ports=",".join([p[0]["HostPort"] for p in ports]),
+            host=str(docker.hostname).split(":")[0],
+            challenge=challenge,
         )
         db.session.add(entry)
         db.session.commit()
-        #db.session.close()
+        # db.session.close()
         return
 
 
-active_docker_namespace = Namespace("docker", description='Endpoint to retrieve User Docker Image Status')
+active_docker_namespace = Namespace(
+    "docker", description="Endpoint to retrieve User Docker Image Status"
+)
 
 
-@active_docker_namespace.route("", methods=['POST', 'GET'])
+@active_docker_namespace.route("", methods=["POST", "GET"])
 class DockerStatus(Resource):
     """
-	The Purpose of this API is to retrieve a public JSON string of all docker containers
-	in use by the current team/user.
-	"""
+    The Purpose of this API is to retrieve a public JSON string of all docker containers
+    in use by the current team/user.
+    """
 
     @authed_only
     def get(self):
@@ -679,32 +826,31 @@ class DockerStatus(Resource):
             tracker = DockerChallengeTracker.query.filter_by(user_id=session.id)
         data = list()
         for i in tracker:
-            data.append({
-                'id': i.id,
-                'team_id': i.team_id,
-                'user_id': i.user_id,
-                'docker_image': i.docker_image,
-                'timestamp': i.timestamp,
-                'revert_time': i.revert_time,
-                'instance_id': i.instance_id,
-                'ports': i.ports.split(','),
-                'host': str(docker.hostname).split(':')[0]
-            })
-        return {
-            'success': True,
-            'data': data
-        }
+            data.append(
+                {
+                    "id": i.id,
+                    "team_id": i.team_id,
+                    "user_id": i.user_id,
+                    "docker_image": i.docker_image,
+                    "timestamp": i.timestamp,
+                    "revert_time": i.revert_time,
+                    "instance_id": i.instance_id,
+                    "ports": i.ports.split(","),
+                    "host": str(docker.hostname).split(":")[0],
+                }
+            )
+        return {"success": True, "data": data}
 
 
-docker_namespace = Namespace("docker", description='Endpoint to retrieve dockerstuff')
+docker_namespace = Namespace("docker", description="Endpoint to retrieve dockerstuff")
 
 
-@docker_namespace.route("", methods=['POST', 'GET'])
+@docker_namespace.route("", methods=["POST", "GET"])
 class DockerAPI(Resource):
     """
-	This is for creating Docker Challenges. The purpose of this API is to populate the Docker Image Select form
-	object in the Challenge Creation Screen.
-	"""
+    This is for creating Docker Challenges. The purpose of this API is to populate the Docker Image Select form
+    object in the Challenge Creation Screen.
+    """
 
     @admins_only
     def get(self):
@@ -713,33 +859,27 @@ class DockerAPI(Resource):
         if images:
             data = list()
             for i in images:
-                data.append({'name': i})
-            return {
-                'success': True,
-                'data': data
-            }
+                data.append({"name": i})
+            return {"success": True, "data": data}
         else:
             return {
-                       'success': False,
-                       'data': [
-                           {
-                               'name': 'Error in Docker Config!'
-                           }
-                       ]
-                   }, 400
-
+                "success": False,
+                "data": [{"name": "Error in Docker Config!"}],
+            }, 400
 
 
 def load(app):
     app.db.create_all()
-    CHALLENGE_CLASSES['docker'] = DockerChallengeType
-    @app.template_filter('datetimeformat')
-    def datetimeformat(value, format='%Y-%m-%d %H:%M:%S'):
+    CHALLENGE_CLASSES["docker"] = DockerChallengeType
+
+    @app.template_filter("datetimeformat")
+    def datetimeformat(value, format="%Y-%m-%d %H:%M:%S"):
         return datetime.fromtimestamp(value).strftime(format)
-    register_plugin_assets_directory(app, base_path='/plugins/docker_challenges/assets')
+
+    register_plugin_assets_directory(app, base_path="/plugins/docker_challenges/assets")
     define_docker_admin(app)
     define_docker_status(app)
-    CTFd_API_v1.add_namespace(docker_namespace, '/docker')
-    CTFd_API_v1.add_namespace(container_namespace, '/container')
-    CTFd_API_v1.add_namespace(active_docker_namespace, '/docker_status')
-    CTFd_API_v1.add_namespace(kill_container, '/nuke')
+    CTFd_API_v1.add_namespace(docker_namespace, "/docker")
+    CTFd_API_v1.add_namespace(container_namespace, "/container")
+    CTFd_API_v1.add_namespace(active_docker_namespace, "/docker_status")
+    CTFd_API_v1.add_namespace(kill_container, "/nuke")

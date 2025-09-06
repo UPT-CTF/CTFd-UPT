@@ -46,7 +46,7 @@ def confirm(data=None):
     if data and request.method == "GET":
         try:
             user_email = verify_email_confirm_token(data)
-        except (UserConfirmTokenInvalidException):
+        except UserConfirmTokenInvalidException:
             return render_template(
                 "confirm.html",
                 errors=["Your confirmation link is invalid, please generate a new one"],
@@ -125,7 +125,7 @@ def reset_password(data=None):
     if data is not None:
         try:
             email_address = verify_reset_password_token(data)
-        except (UserResetPasswordTokenInvalidException):
+        except UserResetPasswordTokenInvalidException:
             return render_template(
                 "reset_password.html",
                 errors=["Your reset link is invalid, please generate a new one"],

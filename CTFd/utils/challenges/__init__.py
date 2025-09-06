@@ -112,7 +112,7 @@ def get_solve_ids_for_user_id(user_id):
         .filter(Solves.account_id == user.account_id)
         .all()
     )
-    solve_ids = {value for value, in solve_ids}
+    solve_ids = {value for (value,) in solve_ids}
     return solve_ids
 
 

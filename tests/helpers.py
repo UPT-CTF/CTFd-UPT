@@ -268,9 +268,11 @@ def login_with_mlc(
     team_oauth_id=1234,
     raise_for_error=True,
 ):
-    with app.test_client() as client, patch.object(
-        requests, "get"
-    ) as fake_get_request, patch.object(requests, "post") as fake_post_request:
+    with (
+        app.test_client() as client,
+        patch.object(requests, "get") as fake_get_request,
+        patch.object(requests, "post") as fake_post_request,
+    ):
         client.get("/login")
         with client.session_transaction() as sess:
             nonce = sess["nonce"]
@@ -339,7 +341,7 @@ def gen_challenge(
     category="chal_category",
     type="standard",
     state="visible",
-    **kwargs
+    **kwargs,
 ):
     chal = Challenges(
         name=name,
@@ -348,7 +350,7 @@ def gen_challenge(
         category=category,
         type=type,
         state=state,
-        **kwargs
+        **kwargs,
     )
     db.session.add(chal)
     db.session.commit()
@@ -419,7 +421,7 @@ def gen_team(
     email="team@examplectf.com",
     password="password",
     member_count=4,
-    **kwargs
+    **kwargs,
 ):
     team = Teams(name=name, email=email, password=password, **kwargs)
     for i in range(member_count):
@@ -458,7 +460,7 @@ def gen_solve(
     challenge_id=None,
     ip="127.0.0.1",
     provided="rightkey",
-    **kwargs
+    **kwargs,
 ):
     solve = Solves(
         user_id=user_id,
@@ -466,7 +468,7 @@ def gen_solve(
         challenge_id=challenge_id,
         ip=ip,
         provided=provided,
-        **kwargs
+        **kwargs,
     )
     solve.date = datetime.datetime.utcnow()
     db.session.add(solve)
@@ -493,7 +495,7 @@ def gen_fail(
     challenge_id=None,
     ip="127.0.0.1",
     provided="wrongkey",
-    **kwargs
+    **kwargs,
 ):
     fail = Fails(
         user_id=user_id,
@@ -501,7 +503,7 @@ def gen_fail(
         challenge_id=challenge_id,
         ip=ip,
         provided=provided,
-        **kwargs
+        **kwargs,
     )
     fail.date = datetime.datetime.utcnow()
     db.session.add(fail)
@@ -523,7 +525,7 @@ def gen_page(db, title, route, content, draft=False, auth_required=False, **kwar
         content=content,
         draft=draft,
         auth_required=auth_required,
-        **kwargs
+        **kwargs,
     )
     db.session.add(page)
     db.session.commit()
