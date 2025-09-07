@@ -396,7 +396,7 @@ def create_container(docker, image, team, portbl):
     assigned_ports = {}
     for i in needed_ports:
         while True:
-            assigned_port = random.choice(range(30000, 60000))
+            assigned_port = random.choice(range(9000, 10000))
             if assigned_port not in portbl:
                 assigned_ports["%s/tcp" % assigned_port] = {}
                 break
