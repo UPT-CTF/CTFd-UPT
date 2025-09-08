@@ -1,5 +1,5 @@
 revision = "docker_dynamic_0002"
-down_revision = None
+down_revision = "docker_dynamic_0001"
 branch_labels = None
 depends_on = None
 
