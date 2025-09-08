@@ -361,6 +361,11 @@ def static_html(route):
         if page.auth_required and authed() is False:
             return redirect(url_for("auth.login", next=request.full_path))
 
+        if route == "index":
+            return render_template(
+                ["index.html", "page.html"], content=page.html, title=page.title
+            )
+
         return render_template("page.html", content=page.html, title=page.title)
 
 
