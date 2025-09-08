@@ -2,10 +2,7 @@
 
 {% block category %}
 <div class="form-group">
-    <label>
-        Category<br>
-        <small class="form-text text-muted">Challenge Category</small>
-    </label>
+    <label>Category<br><small class="form-text text-muted">Challenge Category</small></label>
     <input type="text" class="form-control chal-category" name="category" value="{{ challenge.category }}">
 </div>
 
@@ -18,16 +15,22 @@
 </div>
 
 <div class="form-group">
-    <label for="value">Initial Value<br>
-        <small class="form-text text-muted">How many points initially</small>
-    </label>
+    <label>Connection Type</label>
+    <select name="connection_type" class="custom-select">
+        <option value="generic" {% if (challenge.connection_type or 'generic') == 'generic' %}selected{% endif %}>generic</option>
+        <option value="http" {% if challenge.connection_type == 'http' %}selected{% endif %}>http</option>
+        <option value="https" {% if challenge.connection_type == 'https' %}selected{% endif %}>https</option>
+        <option value="nc" {% if challenge.connection_type == 'nc' %}selected{% endif %}>nc</option>
+    </select>
+</div>
+
+<div class="form-group">
+    <label for="value">Initial Value<br><small class="form-text text-muted">How many points initially</small></label>
     <input type="number" class="form-control" name="initial" value="{{ challenge.initial or challenge.value }}" required>
 </div>
 
 <div class="form-group">
-    <label for="value">Decay Function<br>
-        <small class="form-text text-muted">How value decreases</small>
-    </label>
+    <label for="value">Decay Function<br><small class="form-text text-muted">How value decreases</small></label>
     <select name="function" class="custom-select">
         <option value="linear" {% if challenge.function == "linear" %}selected{% endif %}>Linear</option>
         <option value="logarithmic" {% if challenge.function != "linear" %}selected{% endif %}>Logarithmic</option>
@@ -35,16 +38,12 @@
 </div>
 
 <div class="form-group">
-    <label for="value">Decay<br>
-        <small class="form-text text-muted">Meaning depends on function</small>
-    </label>
+    <label for="value">Decay<br><small class="form-text text-muted">Meaning depends on function</small></label>
     <input type="number" class="form-control" name="decay" min="1" value="{{ challenge.decay or 1 }}" required>
 </div>
 
 <div class="form-group">
-    <label for="value">Minimum Value<br>
-        <small class="form-text text-muted">Lowest possible value</small>
-    </label>
+    <label for="value">Minimum Value<br><small class="form-text text-muted">Lowest possible value</small></label>
     <input type="number" class="form-control" name="minimum" value="{{ challenge.minimum or 0 }}" required>
 </div>
 {% endblock %}

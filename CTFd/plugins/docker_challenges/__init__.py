@@ -575,6 +575,7 @@ class DockerChallengeType(BaseChallenge):
             "decay": challenge.decay,
             "minimum": challenge.minimum,
             "function": challenge.function,
+            "connection_type": challenge.connection_type,
             "type_data": {
                 "id": DockerChallengeType.id,
                 "name": DockerChallengeType.name,
@@ -706,7 +707,7 @@ class DockerChallenge(Challenges):
     minimum = db.Column(db.Integer, default=0)
     decay = db.Column(db.Integer, default=0)
     function = db.Column(db.String(32), default="logarithmic")
-    # connection_type = db.Column(db.String(32), default="host_port")
+    connection_type = db.Column(db.String(16), default="generic")
 
 
 # API
@@ -804,12 +805,16 @@ class ContainerAPI(Resource):
 
         # Check if a container is already running for this user. We need to recheck the DB first
         containers = DockerChallengeTracker.query.all()
-        for i in containers:
-            if int(session.id) == int(i.user_id):
-                return abort(
-                    403,
-                    f"Another container is already running for challenge:<br><i><b>{i.challenge}</b></i>.<br>Please stop this first.<br>You can only run one container.",
-                )
+        if is_teams_mode():
+            existing = DockerChallengeTracker.query.filter_by(team_id=session.id).first()
+        else:
+            existing = DockerChallengeTracker.query.filter_by(user_id=session.id).first()
+
+        if existing:
+            return abort(
+                403,
+                f"Another container is already running for challenge:<br><i><b>{existing.challenge}</b></i>.<br>Please stop this first.<br>You can only run one container.",
+            )
 
         portsbl = get_unavailable_ports(docker)
         create = create_container(docker, container, session.name, portsbl)
