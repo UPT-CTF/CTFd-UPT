@@ -1,4 +1,5 @@
 {% extends "admin/challenges/update.html" %}
+
 {% block category %}
 <div class="form-group">
     <label>
@@ -7,15 +8,50 @@
     </label>
     <input type="text" class="form-control chal-category" name="category" value="{{ challenge.category }}">
 </div>
+
 <div class="form-group">
-    <label for="DockerImage" id='dockerimage_label'>Docker Image:
+    <label for="DockerImage" id="dockerimage_label">
+        Docker Image:
         <i class="far fa-question-circle text-muted cursor-help" data-toggle="tooltip" data-placement="right" title="The docker image for your challenge"></i>
     </label>
     <select id="dockerimage_select" name="docker_image" class="form-control" required></select>
 </div>
+
+<div class="form-group">
+    <label for="value">Initial Value<br>
+        <small class="form-text text-muted">How many points initially</small>
+    </label>
+    <input type="number" class="form-control" name="initial" value="{{ challenge.initial or challenge.value }}" required>
+</div>
+
+<div class="form-group">
+    <label for="value">Decay Function<br>
+        <small class="form-text text-muted">How value decreases</small>
+    </label>
+    <select name="function" class="custom-select">
+        <option value="linear" {% if challenge.function == "linear" %}selected{% endif %}>Linear</option>
+        <option value="logarithmic" {% if challenge.function != "linear" %}selected{% endif %}>Logarithmic</option>
+    </select>
+</div>
+
+<div class="form-group">
+    <label for="value">Decay<br>
+        <small class="form-text text-muted">Meaning depends on function</small>
+    </label>
+    <input type="number" class="form-control" name="decay" min="1" value="{{ challenge.decay or 1 }}" required>
+</div>
+
+<div class="form-group">
+    <label for="value">Minimum Value<br>
+        <small class="form-text text-muted">Lowest possible value</small>
+    </label>
+    <input type="number" class="form-control" name="minimum" value="{{ challenge.minimum or 0 }}" required>
+</div>
 {% endblock %}
+
 {% block footer %}
 <script>
 var DOCKER_IMAGE = '{{ challenge.docker_image }}';
 </script>
 {% endblock %}
+

@@ -1,11 +1,13 @@
 import traceback
-
+from CTFd.plugins.dynamic_challenges.decay import DECAY_FUNCTIONS, logarithmic
 from CTFd.plugins.challenges import BaseChallenge, CHALLENGE_CLASSES, get_chal_class
 from CTFd.plugins.flags import get_flag_class
 from CTFd.utils.user import get_ip
 from CTFd.utils.uploads import delete_file
 from CTFd.plugins import register_plugin_assets_directory, bypass_csrf_protection
 from CTFd.schemas.tags import TagSchema
+from CTFd.plugins.migrations import upgrade
+
 from CTFd.models import (
     db,
     ma,
@@ -84,6 +86,12 @@ import httpx, traceback
 from pathlib import Path
 from urllib.parse import urlparse
 
+def calculate_dynamic_value(chal):
+    f = DECAY_FUNCTIONS.get(chal.function, logarithmic)
+    value = f(chal)
+    chal.value = value
+    db.session.commit()
+    return chal
 
 class DockerConfig(db.Model):
     """
@@ -512,10 +520,15 @@ class DockerChallengeType(BaseChallenge):
         """
         data = request.form or request.get_json()
         for attr, value in data.items():
+            if attr in ("initial", "minimum", "decay"):
+                try:
+                    value = float(value)
+                except (ValueError, TypeError):
+                    continue
             setattr(challenge, attr, value)
-
         db.session.commit()
-        return challenge
+        return calculate_dynamic_value(challenge)
+
 
     @staticmethod
     def delete(challenge):
@@ -558,6 +571,10 @@ class DockerChallengeType(BaseChallenge):
             "state": challenge.state,
             "max_attempts": challenge.max_attempts,
             "type": challenge.type,
+            "initial": challenge.initial,
+            "decay": challenge.decay,
+            "minimum": challenge.minimum,
+            "function": challenge.function,
             "type_data": {
                 "id": DockerChallengeType.id,
                 "name": DockerChallengeType.name,
@@ -577,9 +594,13 @@ class DockerChallengeType(BaseChallenge):
         """
         data = request.form or request.get_json()
         challenge = DockerChallenge(**data)
+        if "initial" in data:
+            challenge.value = data["initial"]
         db.session.add(challenge)
         db.session.commit()
+        calculate_dynamic_value(challenge)
         return challenge
+
 
     @staticmethod
     def attempt(challenge, request):
@@ -648,6 +669,8 @@ class DockerChallengeType(BaseChallenge):
         )
         db.session.add(solve)
         db.session.commit()
+        calculate_dynamic_value(challenge)
+
         # trying if this solces the detached instance error...
         # db.session.close()
 
@@ -679,6 +702,11 @@ class DockerChallenge(Challenges):
     __mapper_args__ = {"polymorphic_identity": "docker"}
     id = db.Column(None, db.ForeignKey("challenges.id"), primary_key=True)
     docker_image = db.Column(db.String(128), index=True)
+    initial = db.Column(db.Integer, default=0)
+    minimum = db.Column(db.Integer, default=0)
+    decay = db.Column(db.Integer, default=0)
+    function = db.Column(db.String(32), default="logarithmic")
+    # connection_type = db.Column(db.String(32), default="host_port")
 
 
 # API
@@ -869,6 +897,8 @@ class DockerAPI(Resource):
 
 
 def load(app):
+    upgrade(plugin_name="docker_challenges")
+    
     app.db.create_all()
     CHALLENGE_CLASSES["docker"] = DockerChallengeType
 
